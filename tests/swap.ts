@@ -153,7 +153,7 @@ describe("swap", () => {
       async ()=>{
         const transactionSignature = await program.methods
         .takeOffer()
-        .accounts({...accounts})
+        .accounts({ ...accounts})
         .signers([bob])
         .rpc();
 
