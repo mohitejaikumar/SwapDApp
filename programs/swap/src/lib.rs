@@ -30,7 +30,7 @@ pub mod swap {
     pub fn take_offer(ctx: Context<TakeOffer>) -> Result<()> {
         instructions::take_offer::send_wanted_tokens_to_maker(&ctx)?;
 
-        instructions::take_offer::withdraw_and_close_vault(&ctx)?;
+        instructions::take_offer::withdraw_and_close_vault(ctx)?;
 
         Ok(())
     }

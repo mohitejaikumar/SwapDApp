@@ -4,7 +4,7 @@ use anchor_spl::{
     token_interface::{
         close_account, transfer_checked, CloseAccount, Mint, TokenAccount, TokenInterface,
         TransferChecked,
-    }, // to have compatibility with older token program and newer token extension program
+    },
 };
 
 use crate::Offer;
@@ -28,7 +28,7 @@ pub struct TakeOffer<'info> {
         payer = taker,
         associated_token::mint = token_mint_a,
         associated_token::authority = taker,
-        associated_token::token_program = token_program
+        associated_token::token_program = token_program,
     )]
     pub taker_token_account_a: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -36,16 +36,16 @@ pub struct TakeOffer<'info> {
         mut,
         associated_token::mint = token_mint_b,
         associated_token::authority = taker,
-        associated_token::token_program = token_program
+        associated_token::token_program = token_program,
     )]
     pub taker_token_account_b: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         init_if_needed,
-        payer = maker,
+        payer = taker,
         associated_token::mint = token_mint_b,
         associated_token::authority = maker,
-        associated_token::token_program = token_program
+        associated_token::token_program = token_program,
     )]
     pub maker_token_account_b: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -56,7 +56,7 @@ pub struct TakeOffer<'info> {
         has_one = token_mint_a,
         has_one = token_mint_b,
         seeds = [b"offer", maker.key().as_ref(), offer.id.to_le_bytes().as_ref()],
-        bump
+        bump = offer.bump
     )]
     offer: Account<'info, Offer>,
 
@@ -73,59 +73,56 @@ pub struct TakeOffer<'info> {
     pub associated_token_program: Program<'info, AssociatedToken>,
 }
 
-pub fn send_wanted_tokens_to_maker(ctx: &Context<TakeOffer>) -> Result<()> {
+pub fn send_wanted_tokens_to_maker(context: &Context<TakeOffer>) -> Result<()> {
     transfer_tokens(
-        &ctx.accounts.taker_token_account_b,
-        &ctx.accounts.maker_token_account_b,
-        &ctx.accounts.offer.token_b_wanted_amount,
-        &ctx.accounts.token_mint_b,
-        &ctx.accounts.taker,
-        &ctx.accounts.token_program,
+        &context.accounts.taker_token_account_b,
+        &context.accounts.maker_token_account_b,
+        &context.accounts.offer.token_b_wanted_amount,
+        &context.accounts.token_mint_b,
+        &context.accounts.taker,
+        &context.accounts.token_program,
     )
 }
 
-pub fn withdraw_and_close_vault(ctx: &Context<TakeOffer>) -> Result<()> {
+pub fn withdraw_and_close_vault(context: Context<TakeOffer>) -> Result<()> {
     let seeds = &[
         b"offer",
-        ctx.accounts.maker.to_account_info().key.as_ref(),
-        &ctx.accounts.offer.id.to_le_bytes()[..],
-        &[ctx.accounts.offer.bump],
+        context.accounts.maker.to_account_info().key.as_ref(),
+        &context.accounts.offer.id.to_le_bytes()[..],
+        &[context.accounts.offer.bump],
     ];
-
     let signer_seeds = [&seeds[..]];
 
     let accounts = TransferChecked {
-        from: ctx.accounts.vault.to_account_info(),
-        to: ctx.accounts.taker_token_account_a.to_account_info(),
-        mint: ctx.accounts.token_mint_a.to_account_info(),
-        authority: ctx.accounts.offer.to_account_info(),
+        from: context.accounts.vault.to_account_info(),
+        to: context.accounts.taker_token_account_a.to_account_info(),
+        mint: context.accounts.token_mint_a.to_account_info(),
+        authority: context.accounts.offer.to_account_info(),
     };
 
     let cpi_context = CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
+        context.accounts.token_program.to_account_info(),
         accounts,
         &signer_seeds,
     );
 
     transfer_checked(
         cpi_context,
-        ctx.accounts.vault.amount,
-        ctx.accounts.token_mint_a.decimals,
+        context.accounts.vault.amount,
+        context.accounts.token_mint_a.decimals,
     )?;
 
     let accounts = CloseAccount {
-        account: ctx.accounts.vault.to_account_info(),
-        destination: ctx.accounts.taker.to_account_info(),
-        authority: ctx.accounts.offer.to_account_info(),
+        account: context.accounts.vault.to_account_info(),
+        destination: context.accounts.taker.to_account_info(),
+        authority: context.accounts.offer.to_account_info(),
     };
 
     let cpi_context = CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
+        context.accounts.token_program.to_account_info(),
         accounts,
         &signer_seeds,
     );
 
-    close_account(cpi_context)?;
-
-    Ok(())
+    close_account(cpi_context)
 }
