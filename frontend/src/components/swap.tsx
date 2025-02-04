@@ -120,6 +120,7 @@ export default function SwapComponent() {
         <div className="absolute top-4 right-4">
           <WalletButton />
         </div>
+        
       )}
       { activeTab === 'make' &&
          <div className="absolute top-[8%] text-center text-green-500">
